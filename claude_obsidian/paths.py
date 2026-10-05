@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from . import winfd
 from .json_utils import parse_finite_json_float
 
 WORKSPACE_CONFIG = ".claude-obsidian.json"
@@ -61,6 +62,8 @@ def supports_confined_dirfd() -> bool:
     separate.
     """
 
+    if winfd.reduced_active():
+        return False  # callers add winfd.reduced_active() where they support it
     return (
         os.name != "nt"
         and hasattr(os, "O_DIRECTORY")
@@ -80,6 +83,7 @@ def directory_open_flags() -> int:
         | getattr(os, "O_DIRECTORY", 0)
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
+        | (winfd._O_DIRECTORY | winfd._O_NOFOLLOW if winfd.reduced_active() else 0)
     )
 
 

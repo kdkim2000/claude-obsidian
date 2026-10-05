@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from . import winfd
 from .json_utils import parse_finite_json_float
 from .paths import (
     VaultSelectionError,
@@ -36,6 +37,10 @@ from .paths import (
     read_open_flags,
     supports_confined_dirfd,
 )
+
+if os.name == "nt":
+    # Opt-in reduced-guarantee directory handles; identical to os otherwise.
+    os = winfd.os_proxy  # type: ignore[assignment]
 
 
 BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
@@ -413,7 +418,7 @@ def safe_transactions_root(vault_root: Path | str, *, create: bool = False) -> P
 
 
 def _supports_confined_dirfd() -> bool:
-    return supports_confined_dirfd()
+    return supports_confined_dirfd() or winfd.reduced_active()
 
 
 def _open_parent_directory(
@@ -1371,6 +1376,8 @@ def _require_lock_dirfd_support() -> None:
     to path-based lock operations that can follow a concurrently swapped alias.
     """
 
+    if winfd.reduced_active():
+        return
     required = (os.open, os.mkdir, os.stat, os.unlink, os.rmdir, os.rename)
     if (
         os.name == "nt"
@@ -1387,7 +1394,9 @@ def _require_lock_dirfd_support() -> None:
 
 _UNSUPPORTED_PLATFORM_MESSAGE = (
     "vault writes require directory-descriptor confinement (WSL/Linux or "
-    "supported macOS); on native Windows run this command inside WSL — "
+    "supported macOS); on native Windows run this command inside WSL, or set "
+    "CLAUDE_OBSIDIAN_ALLOW_REDUCED_WRITES=1 to accept weaker path-based "
+    "confinement for a single-user local vault — "
     "read-only inspection and dry-runs work natively; if WSL itself "
     "misbehaves, see docs/windows-wsl.md"
 )
@@ -1486,6 +1495,9 @@ def _open_lock_parent_from_root_fd(
 def _try_vault_advisory_lock(root_fd: int) -> bool:
     """Try to serialize the vault inode across runtime namespace replacement."""
 
+    if winfd.reduced_active():
+        # No flock on Windows; the atomic mkdir of mutation.lock is the mutex.
+        return True
     try:
         fcntl_module = __import__("fcntl")
         lock_ex = int(getattr(fcntl_module, "LOCK_EX"))
@@ -4163,7 +4175,10 @@ def _validate_completed_result(
             raise error_type(
                 code, f"cannot verify completed path {relative}: {exc}"
             ) from exc
-        if actual_hash != expected_hash or actual_mode != expected_mode:
+        # Windows synthesizes st_mode (0o666/0o444); mode is not comparable.
+        if actual_hash != expected_hash or (
+            actual_mode != expected_mode and os.name != "nt"
+        ):
             raise error_type(
                 code,
                 f"completed operation path drifted: {relative} "

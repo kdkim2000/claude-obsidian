@@ -46,6 +46,18 @@ diagnostic. SessionStart context and Stop recovery warnings are both silently
 absent in that case; the rest of claude-obsidian (skills and the CLI) is
 unaffected, since only the optional hook path depends on `python3`.
 
+## Native reduced-guarantee write mode (opt-in)
+
+If WSL is not available, set `CLAUDE_OBSIDIAN_ALLOW_REDUCED_WRITES=1` (the
+`scripts/windows/co.ps1` wrapper does this) to allow vault writes on native
+Windows. `claude_obsidian/winfd.py` emulates directory descriptors with
+path-backed virtual handles. Every directory open rejects symlinks and
+junctions, writes stay transactional (approval hash, journal, backups,
+rollback), but a directory is not pinned: a concurrent path swap between a
+check and its use is not prevented. Use it only for a single-user local vault
+on NTFS. `checkpoint`, `legacy_lock` and the bash scripts remain unsupported;
+use plain `git` for history. Without the variable, writes are still refused.
+
 ## Why writes require WSL
 
 Mutation safety is bound to POSIX directory descriptors: the vault root and

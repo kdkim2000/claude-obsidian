@@ -30,6 +30,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Iterator, Mapping, Sequence, cast
 from urllib.parse import urlsplit, urlunsplit
 
+from . import winfd
 from .json_utils import parse_finite_json_float
 
 from .paths import canonical, is_relative_to
@@ -53,6 +54,9 @@ from .transaction import (
     sha256_bytes,
 )
 from .url_safety import url_credential_issue
+
+if os.name == "nt":
+    os = winfd.os_proxy  # type: ignore[assignment]
 
 
 ADAPTER_SCHEMA = "claude-obsidian.capture-adapters.v1"

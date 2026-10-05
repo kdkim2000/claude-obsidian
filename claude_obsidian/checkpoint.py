@@ -1221,6 +1221,14 @@ def checkpoint_operation(
         raise CheckpointError(
             "INVALID_AS_OF", "as_of must be an ISO date, date object, or null"
         )
+    if os.name == "nt":
+        # Checkpointing needs real descriptors (git runs from a pinned cwd);
+        # the reduced Windows mode has none.  Use plain `git add/commit`.
+        raise CheckpointError(
+            "UNSUPPORTED_PLATFORM",
+            "checkpoint requires Linux or macOS; on native Windows use "
+            "ordinary git commands in the vault",
+        )
     with MutationLock(root) as mutation_lock:
         root_fd = mutation_lock.duplicate_root_fd()
         active_token: Token[tuple[Path, int] | None] = _ACTIVE_ROOT.set((root, root_fd))
