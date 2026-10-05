@@ -7,6 +7,22 @@ implementation record for older releases.
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in native-Windows write mode (`CLAUDE_OBSIDIAN_ALLOW_REDUCED_WRITES=1`)
+  backed by `claude_obsidian/winfd.py`: virtual directory handles replace POSIX
+  descriptors, with symlink/junction rejection on every open but without
+  directory pinning. Default behavior (refuse with `UNSUPPORTED_PLATFORM`) is
+  unchanged. `checkpoint` stays unsupported on Windows.
+- `scripts/windows/` PowerShell operating layer for a `.venv` install
+  (`setup-venv`, `co`, `claude-vault`, `vault-sync`, `run-tests`).
+- `tests/test_windows_reduced_writes.py`.
+
+### Fixed
+
+- `os.kill(pid, 0)` liveness probes terminated the target process on Windows;
+  they now use a non-destructive query when the proxy is active.
+
 ## [2.2.0] - 2026-09-10
 
 Backlog triage: lint scoping, lock recovery, host validation, the `bin/`
