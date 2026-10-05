@@ -18,4 +18,5 @@ function Enter-OperatingEnv {
         $env:PATH = "$script:VenvScripts;$env:PATH"
     }
     $env:PYTHONDONTWRITEBYTECODE = '1'
+    $env:PYTHONUTF8 = '1'   # retrieve.py prints non-cp949 characters
 }
